@@ -1,0 +1,14 @@
+
+#main .media-gallery-detail-wrapper .media-gallery-detail {
+width: 640px;
+height: 480px;
+}
+
+.page-node-15686 h1 {
+  display: none;
+}
+.front #content-area h2,
+.front #content .node-readmore,
+.breadcrumb {
+  display: none;
+}

@@ -1,2 +1,2 @@
-# thichthonglac.com
-Thư viện Chơn Như
+# Giới thiệu 
+[Website Thư viện Chơn Như](http://thichthonglac.com)
