@@ -1,0 +1,93 @@
+<?php
+
+/**
+ * @file
+ * Main file for the media_gallery_export module.
+ */
+
+/**
+ * Implements hook_help().
+ */
+function media_gallery_export_help($path, $arg) {
+ return '';
+}
+
+/**
+ * Implements hook_menu().
+ */
+function media_gallery_export_menu() {
+  $items['admin/config/media/media_gallery_export'] = [
+    'title' => 'Export media gallery',
+    'description' => 'Export media gallery.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['media_gallery_export_form'],
+    'access arguments' => ['administer site configuration'],
+  ];
+
+  return $items;
+}
+
+/**
+ * Export form.
+ */
+function media_gallery_export_form() {
+  $form = [];
+
+  $form['fieldset'] = [
+    '#type' => 'fieldset',
+    '#title' => t('Export media galleries'),
+    '#description' => 'Galleries will be exported to sites/default/files/media_gallery_export',
+  ];
+  $form['fieldset']['submit'] = [
+    '#value' => t('Export'),
+    '#type' => 'submit',
+    '#submit' => ['media_gallery_export_form_submit'],
+  ];
+
+  return $form;
+}
+
+/**
+ * Export form submit handler.
+ */
+function media_gallery_export_form_submit() {
+  $export_dir = 'public://media_gallery_export';
+
+  if (file_prepare_directory($export_dir, FILE_CREATE_DIRECTORY)) {
+    $galleries = node_load_multiple([], ['type' => 'media_gallery']);
+    $export_dir_path = drupal_realpath($export_dir);
+    $galleries_csv = fopen($export_dir_path . '/galleries.csv', 'w');
+
+    foreach ($galleries as $gallery) {
+      $fids = $gallery->media_gallery_media['und'];
+      $gallery_dir = 'public://media_gallery_export/' . $gallery->nid;
+      $gallery_dir_path = drupal_realpath($gallery_dir);
+
+      $csv = [$gallery->nid, $gallery->title];
+      fputcsv($galleries_csv, $csv, ';');
+
+      if (file_prepare_directory($gallery_dir, FILE_CREATE_DIRECTORY)) {
+        $gallery_csv = fopen($gallery_dir_path . '/gallery.csv', 'w');
+
+        foreach ($fids as $fid) {
+          $file = file_load($fid['fid']);
+          $file->media_title ? $file_title = $file->media_title['und'][0]['safe_value'] : $file_title = 'No media title';
+          $file_name = drupal_basename($file->uri);
+          $file_path = drupal_realpath($file->uri);
+          $file_new_path = $gallery_dir_path . '/' . $file_name;
+
+          $csv = [$file_name, $file_title];
+          fputcsv($gallery_csv, $csv, ';');
+
+          copy($file_path, $file_new_path);
+        }
+
+        fclose($gallery_csv);
+      }
+    }
+
+    fclose($galleries_csv);
+  }
+
+  drupal_set_message(t('Your galleries were exported!'));
+}

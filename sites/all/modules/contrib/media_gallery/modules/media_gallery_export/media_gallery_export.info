@@ -1,0 +1,11 @@
+name = Media Gallery Export
+description = Export media gallery.
+core = 7.x
+package = Media
+dependencies[] = media_gallery
+
+; Information added by Drupal.org packaging script on 2020-02-08
+version = "7.x-1.2"
+core = "7.x"
+project = "media_gallery"
+datestamp = "1581190835"
