@@ -325,6 +325,9 @@ ini_set('session.cookie_lifetime', 2000000);
 # ini_set('pcre.backtrack_limit', 200000);
 # ini_set('pcre.recursion_limit', 200000);
 
+ini_set('mbstring.http_input', 'pass');
+ini_set('mbstring.http_output', 'pass'); 
+
 /**
  * Drupal automatically generates a unique session cookie name for each site
  * based on its full domain name. If you have multiple domains pointing at the
@@ -564,3 +567,5 @@ $conf['404_fast_html'] = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML+RDFa 1.0//EN"
  * Remove the leading hash signs to disable.
  */
 # $conf['allow_authorize_operations'] = FALSE;
+# $conf['clean_url'] = 0;
+# $config['system.logging']['error_level'] = 'verbose';
