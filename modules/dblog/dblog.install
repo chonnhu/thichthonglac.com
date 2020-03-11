@@ -97,9 +97,6 @@ function dblog_schema() {
  */
 function dblog_uninstall() {
   variable_del('dblog_row_limit');
-  variable_del('dblog_allowed_severity');
-  variable_del('dblog_allowed_types');
-  variable_del('dblog_known_types');
 }
 
 /**
@@ -155,6 +152,15 @@ function dblog_update_7001() {
  */
 function dblog_update_7002() {
   db_add_index('watchdog', 'severity', array('severity'));
+}
+
+/**
+ * Account for possible legacy systems where dblog was not installed.
+ */
+function dblog_update_7003() {
+  if (!db_table_exists('watchdog')) {
+    db_create_table('watchdog', drupal_get_schema_unprocessed('dblog', 'watchdog'));
+  }
 }
 
 /**

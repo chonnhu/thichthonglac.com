@@ -83,8 +83,6 @@ class DrupalErrorHandlerTestCase extends DrupalWebTestCase {
       '%file' => drupal_realpath('modules/simpletest/tests/error_test.module'),
     );
 
-    // Make sure exceptions are set to display on screen.
-    variable_set('error_level', ERROR_REPORTING_DISPLAY_ALL);
     $this->drupalGet('error-test/trigger-exception');
     $this->assertTrue(strpos($this->drupalGetHeader(':status'), '500 Service unavailable (with message)'), 'Received expected HTTP status line.');
     $this->assertErrorMessage($error_exception);

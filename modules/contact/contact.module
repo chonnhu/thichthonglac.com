@@ -234,7 +234,14 @@ function contact_form_user_profile_form_alter(&$form, &$form_state) {
  * Implements hook_user_presave().
  */
 function contact_user_presave(&$edit, $account, $category) {
-  $edit['data']['contact'] = isset($edit['contact']) ? $edit['contact'] : variable_get('contact_default_status', 1);
+  if (isset($edit['contact'])) {
+    // Set new value.
+    $edit['data']['contact'] = $edit['contact'];
+  }
+  elseif (!isset($account->data['contact'])) {
+    // Use default if none has been set.
+    $edit['data']['contact'] = variable_get('contact_default_status', 1);
+  }
 }
 
 /**
@@ -256,17 +263,4 @@ function contact_form_user_admin_settings_alter(&$form, &$form_state) {
     '#description' => t('Changing this setting will not affect existing users.'),
     '#default_value' => variable_get('contact_default_status', 1),
   );
-}
-
-/**
- * Implements hook_field_extra_fields().
- */
-function contact_field_extra_fields() {
-  $extra['user']['user']['form']['contact'] = array(
-    'label' => t('Contact'),
-    'description' => t('Contact module form element.'),
-    'weight' => 5,
-  );
-
-  return $extra;
 }

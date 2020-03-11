@@ -11,9 +11,15 @@ class CommentHelperCase extends DrupalWebTestCase {
   protected $node;
 
   function setUp() {
-    parent::setUp('comment', 'search');
+    $modules = func_get_args();
+    if (isset($modules[0]) && is_array($modules[0])) {
+      $modules = $modules[0];
+    }
+    $modules[] = 'comment';
+    parent::setUp($modules);
+
     // Create users and test node.
-    $this->admin_user = $this->drupalCreateUser(array('administer content types', 'administer comments', 'administer blocks'));
+    $this->admin_user = $this->drupalCreateUser(array('administer content types', 'administer comments', 'administer blocks', 'administer actions', 'administer fields'));
     $this->web_user = $this->drupalCreateUser(array('access comments', 'post comments', 'create article content', 'edit own comments'));
     $this->node = $this->drupalCreateNode(array('type' => 'article', 'promote' => 1, 'uid' => $this->web_user->uid));
   }
@@ -1490,7 +1496,7 @@ class CommentNodeAccessTest extends CommentHelperCase {
   }
 
   function setUp() {
-    DrupalWebTestCase::setUp('comment', 'search', 'node_access_test');
+    parent::setUp('search', 'node_access_test');
     node_access_rebuild();
 
     // Create users and test node.
@@ -1974,6 +1980,41 @@ class CommentActionsTestCase extends CommentHelperCase {
   }
 
   /**
+   * Tests the unpublish comment by keyword action.
+   */
+  public function testCommentUnpublishByKeyword() {
+    $this->drupalLogin($this->admin_user);
+    $callback = 'comment_unpublish_by_keyword_action';
+    $hash = drupal_hash_base64($callback);
+    $comment_text = $keywords = $this->randomName();
+    $edit = array(
+      'actions_label' => $callback,
+      'keywords' => $keywords,
+    );
+
+    $this->drupalPost("admin/config/system/actions/configure/$hash", $edit, t('Save'));
+
+    $action = db_query("SELECT aid, type, callback, parameters, label FROM {actions} WHERE callback = :callback", array(':callback' => $callback))->fetchObject();
+
+    $this->assertTrue($action, 'The action could be loaded.');
+
+    $comment = $this->postComment($this->node, $comment_text, $this->randomName());
+
+    // Load the full comment so that status is available.
+    $comment = comment_load($comment->id);
+
+    $this->assertTrue($comment->status == COMMENT_PUBLISHED, 'The comment status was set to published.');
+
+    comment_unpublish_by_keyword_action($comment, array('keywords' => array($keywords)));
+
+    // We need to make sure that the comment has been saved with status
+    // unpublished.
+    $this->assertEqual(comment_load($comment->cid)->status, COMMENT_NOT_PUBLISHED, 'Comment was unpublished.');
+    $this->assertWatchdogMessage('Unpublished comment %subject.', array('%subject' => $comment->subject), 'Found watchdog message.');
+    $this->clearWatchdog();
+  }
+
+  /**
    * Verify that a watchdog message has been entered.
    *
    * @param $watchdog_message
@@ -2221,59 +2262,5 @@ class CommentNodeChangesTestCase extends CommentHelperCase {
     $this->assertTrue(comment_load($comment->id), 'The comment could be loaded.');
     node_delete($this->node->nid);
     $this->assertFalse(comment_load($comment->id), 'The comment could not be loaded after the node was deleted.');
-  }
-}
-
-/**
- * Tests the behavior of comments when the comment author is deleted.
- */
-class CommentAuthorDeletionTestCase extends CommentHelperCase {
-  public static function getInfo() {
-    return array(
-      'name' => 'Comment author deletion',
-      'description' => 'Test the behavior of comments when the comment author is deleted.',
-      'group' => 'Comment',
-    );
-  }
-
-  /**
-   * Tests that comments are correctly deleted when their author is deleted.
-   */
-  function testAuthorDeletion() {
-    // Create a comment as the admin user.
-    $this->drupalLogin($this->admin_user);
-    $comment = $this->postComment($this->node, $this->randomName());
-    $this->assertTrue($this->commentExists($comment), t('Comment is displayed initially.'));
-    $this->drupalLogout();
-
-    // Delete the admin user, and check that the node which displays the
-    // comment can still be viewed, but the comment itself does not appear
-    // there.
-    user_delete($this->admin_user->uid);
-    $this->drupalGet('node/' . $this->node->nid);
-    $this->assertResponse(200, t('Node page is accessible after the comment author is deleted.'));
-    $this->assertFalse($this->commentExists($comment), t('Comment is not displayed after the comment author is deleted.'));
-  }
-
-  /**
-   * Test comment author deletion while the comment module is disabled.
-   */
-  function testAuthorDeletionCommentModuleDisabled() {
-    // Create a comment as the admin user.
-    $this->drupalLogin($this->admin_user);
-    $comment = $this->postComment($this->node, $this->randomName());
-    $this->assertTrue($this->commentExists($comment), t('Comment is displayed initially.'));
-    $this->drupalLogout();
-
-    // Delete the admin user while the comment module is disabled, and ensure
-    // that the missing comment author is still handled correctly (the node
-    // itself should be displayed, but the comment should not be displayed on
-    // it).
-    module_disable(array('comment'));
-    user_delete($this->admin_user->uid);
-    module_enable(array('comment'));
-    $this->drupalGet('node/' . $this->node->nid);
-    $this->assertResponse(200, t('Node page is accessible after the comment author is deleted.'));
-    $this->assertFalse($this->commentExists($comment), t('Comment is not displayed after the comment author is deleted.'));
   }
 }

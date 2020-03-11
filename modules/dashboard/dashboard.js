@@ -32,13 +32,13 @@ Drupal.behaviors.dashboard = {
           empty_text = Drupal.settings.dashboard.emptyRegionTextInactive;
         }
         // We need a placeholder.
-        if ($('.placeholder', this).length == 0) {
-          $(this).append('<div class="placeholder"></div>');
+        if ($('.dashboard-placeholder', this).length == 0) {
+          $(this).append('<div class="dashboard-placeholder"></div>');
         }
-        $('.placeholder', this).html(empty_text);
+        $('.dashboard-placeholder', this).html(empty_text);
       }
       else {
-        $('.placeholder', this).remove();
+        $('.dashboard-placeholder', this).remove();
       }
     });
   },
@@ -211,9 +211,9 @@ Drupal.behaviors.dashboard = {
     $('#dashboard div.region').each(function () {
       var region = $(this).parent().attr('id').replace(/-/g, '_');
       var blocks = $(this).sortable('toArray');
-      for (var i = 0, il = blocks.length; i < il; i += 1) {
-        order.push(region + '[]=' + blocks[i]);
-      }
+      $.each(blocks, function() {
+        order.push(region + '[]=' + this);
+      });
     });
     order = order.join('&');
     return order;

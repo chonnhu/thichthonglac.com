@@ -82,12 +82,12 @@ function overlay_theme() {
  * Implements hook_form_alter().
  */
 function overlay_form_alter(&$form, &$form_state) {
-  // Add hidden element to prevent dropping out of the overlay when a form is
-  // submitted inside an overlay using a GET method.
-  if (!empty($form['#method']) && $form['#method'] == 'get' && !empty($_REQUEST['render']) && $_REQUEST['render'] == 'overlay') {
+  // Add a hidden element to prevent dropping out of the overlay when a form is
+  // submitted inside the overlay using a GET method.
+  if (isset($form['#method']) && $form['#method'] == 'get' && isset($_REQUEST['render']) && $_REQUEST['render'] == 'overlay' && !isset($form['render'])) {
     $form['render'] = array(
       '#type' => 'hidden',
-      '#value' => 'overlay'
+      '#value' => 'overlay',
     );
   }
 }
@@ -114,19 +114,6 @@ function overlay_form_user_profile_form_alter(&$form, &$form_state) {
       );
     }
   }
-}
-
-/**
- * Implements hook_field_extra_fields().
- */
-function overlay_field_extra_fields() {
-  $extra['user']['user']['form']['overlay_control'] = array(
-    'label' => t('Administrative overlay'),
-    'description' => t('Overlay module form element.'),
-    'weight' => 4,
-  );
-
-  return $extra;
 }
 
 /**

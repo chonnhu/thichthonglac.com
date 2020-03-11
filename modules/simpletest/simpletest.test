@@ -322,15 +322,13 @@ class SimpleTestFunctionalTest extends DrupalWebTestCase {
  * Test internal testing framework browser.
  */
 class SimpleTestBrowserTestCase extends DrupalWebTestCase {
-  /**
-   * Stores the value of $GLOBALS['base_root'] before the test modifies it.
-   */
-  protected $base_root;
 
   /**
-   * Stores the value of $GLOBALS['base_url'] before the test modifies it.
+   * A flag indicating whether a cookie has been set in a test.
+   *
+   * @var bool
    */
-  protected $base_url;
+  protected static $cookieSet = FALSE;
 
   public static function getInfo() {
     return array(
@@ -343,62 +341,30 @@ class SimpleTestBrowserTestCase extends DrupalWebTestCase {
   function setUp() {
     parent::setUp();
     variable_set('user_register', USER_REGISTER_VISITORS);
-    // Store the original values of the global $base_root and $base_url
-    // variables so we can restore them after they are modified by the test.
-    $this->base_root = $GLOBALS['base_root'];
-    $this->base_url = $GLOBALS['base_url'];
-  }
-
-  function tearDown() {
-    // Restore the original values of the global $base_root and $base_url
-    // variables.
-    $GLOBALS['base_root'] = $this->base_root;
-    $GLOBALS['base_url'] = $this->base_url;
-    parent::tearDown();
   }
 
   /**
    * Test DrupalWebTestCase::getAbsoluteUrl().
    */
   function testGetAbsoluteUrl() {
-    // Store the URLs of the pages we will direct the internal browser to visit
-    // during this test. Force them to be http:// URLs regardless of the
-    // environment the test is running in.
-    variable_set('https', TRUE);
-    $user_login_absolute_url = url('user/login', array('absolute' => TRUE, 'https' => FALSE));
-    $user_register_absolute_url = url('user/register', array('absolute' => TRUE, 'https' => FALSE));
+    // Testbed runs with Clean URLs disabled, so disable it here.
+    variable_set('clean_url', 0);
+    $url = 'user/login';
 
-    // Test that the internal browser always stores the correct URLs for the
-    // location it is pointed at. For example, the URLs should use http:// if
-    // the internal browser is visiting an http:// version of the site,
-    // regardless of whether the parent site (that is running the tests) is on
-    // http:// or https://. This behavior is tested here by modifying the
-    // global $base_root and $base_url variables on the parent site and
-    // verifying that this does not affect the URLs seen by the internal
-    // browser.
-    foreach (array(TRUE, FALSE) as $https_on) {
-      // Simulate the parent site as either http:// or https://.
-      $scheme = $https_on ? 'https' : 'http';
-      $GLOBALS['base_root'] = preg_replace('@^https?://@', "$scheme://", $GLOBALS['base_root']);
-      $GLOBALS['base_url'] = preg_replace('@^https?://@', "$scheme://", $GLOBALS['base_url']);
+    $this->drupalGet($url);
+    $absolute = url($url, array('absolute' => TRUE));
+    $this->assertEqual($absolute, $this->url, 'Passed and requested URL are equal.');
+    $this->assertEqual($this->url, $this->getAbsoluteUrl($this->url), 'Requested and returned absolute URL are equal.');
 
-      // Visit the http:// version of the user/login page and verify that's
-      // where the browser thinks it's at.
-      $this->drupalGet('user/login', array('https' => FALSE));
-      $this->assertEqual($user_login_absolute_url, $this->url, t('Passed and requested URL are equal.'));
-      $this->assertEqual($this->url, $this->getAbsoluteUrl($this->url), t('Requested and returned absolute URL are equal.'));
+    $this->drupalPost(NULL, array(), t('Log in'));
+    $this->assertEqual($absolute, $this->url, 'Passed and requested URL are equal.');
+    $this->assertEqual($this->url, $this->getAbsoluteUrl($this->url), 'Requested and returned absolute URL are equal.');
 
-      // Submit a form and verify that we remain on the correct http:// URL.
-      $this->drupalPost(NULL, array(), t('Log in'));
-      $this->assertEqual($user_login_absolute_url, $this->url, t('Passed and requested URL are equal.'));
-      $this->assertEqual($this->url, $this->getAbsoluteUrl($this->url), t('Requested and returned absolute URL are equal.'));
-
-      // Click a link to go to user/register, and verify that we are on the
-      // correct http:// URL there too.
-      $this->clickLink('Create new account');
-      $this->assertEqual($user_register_absolute_url, $this->url, t('Passed and requested URL are equal.'));
-      $this->assertEqual($this->url, $this->getAbsoluteUrl($this->url), t('Requested and returned absolute URL are equal.'));
-    }
+    $this->clickLink('Create new account');
+    $url = 'user/register';
+    $absolute = url($url, array('absolute' => TRUE));
+    $this->assertEqual($absolute, $this->url, 'Passed and requested URL are equal.');
+    $this->assertEqual($this->url, $this->getAbsoluteUrl($this->url), 'Requested and returned absolute URL are equal.');
   }
 
   /**
@@ -422,6 +388,46 @@ EOF;
     $urls = $this->xpath('//a[text()=:text]', array(':text' => 'A second "even more weird" link, in memory of George O\'Malley'));
     $this->assertEqual($urls[0]['href'], 'link2', 'Match with mixed single and double quotes.');
   }
+
+  /**
+   * Tests that cookies set during a request are available for testing.
+   */
+  public function testCookies() {
+    // Check that the $this->cookies property is populated when a user logs in.
+    $user = $this->drupalCreateUser();
+    $edit = array('name' => $user->name, 'pass' => $user->pass_raw);
+    $this->drupalPost('<front>', $edit, t('Log in'));
+    $this->assertEqual(count($this->cookies), 1, 'A cookie is set when the user logs in.');
+
+    // Check that the name and value of the cookie match the request data.
+    $cookie_header = $this->drupalGetHeader('set-cookie', TRUE);
+
+    // The name and value are located at the start of the string, separated by
+    // an equals sign and ending in a semicolon.
+    preg_match('/^([^=]+)=([^;]+)/', $cookie_header, $matches);
+    $name = $matches[1];
+    $value = $matches[2];
+
+    $this->assertTrue(array_key_exists($name, $this->cookies), 'The cookie name is correct.');
+    $this->assertEqual($value, $this->cookies[$name]['value'], 'The cookie value is correct.');
+
+    // Set a flag indicating that a cookie has been set in this test.
+    // @see SimpleTestBrowserTestCase::testCookieDoesNotBleed().
+    self::$cookieSet = TRUE;
+  }
+
+  /**
+   * Tests that the cookies from a previous test do not bleed into a new test.
+   *
+   * @see SimpleTestBrowserTestCase::testCookies().
+   */
+  public function testCookieDoesNotBleed() {
+    // In order for this test to be effective it should always run after the
+    // testCookies() test.
+    $this->assertTrue(self::$cookieSet, 'Tests have been executed in the expected order.');
+    $this->assertEqual(count($this->cookies), 0, 'No cookies are present at the start of a new test.');
+  }
+
 }
 
 class SimpleTestMailCaptureTestCase extends DrupalWebTestCase {
@@ -745,7 +751,9 @@ class SimpleTestDiscoveryTestCase extends DrupalWebTestCase {
     $classes_all = simpletest_test_get_all();
     foreach (array(
       'Drupal\\simpletest\\Tests\\PSR0WebTest',
+      'Drupal\\simpletest\\Tests\\PSR4WebTest',
       'Drupal\\psr_0_test\\Tests\\ExampleTest',
+      'Drupal\\psr_4_test\\Tests\\ExampleTest',
     ) as $class) {
       $this->assert(!empty($classes_all['SimpleTest'][$class]), t('Class @class must be discovered by simpletest_test_get_all().', array('@class' => $class)));
     }
@@ -768,15 +776,20 @@ class SimpleTestDiscoveryTestCase extends DrupalWebTestCase {
       // Don't expect PSR-0 tests to be discovered on older PHP versions.
       return;
     }
-    // This one is provided by simpletest itself via PSR-0.
+    // These are provided by simpletest itself via PSR-0 and PSR-4.
     $this->assertText('PSR0 web test');
+    $this->assertText('PSR4 web test');
     $this->assertText('PSR0 example test: PSR-0 in disabled modules.');
+    $this->assertText('PSR4 example test: PSR-4 in disabled modules.');
     $this->assertText('PSR0 example test: PSR-0 in nested subfolders.');
+    $this->assertText('PSR4 example test: PSR-4 in nested subfolders.');
 
     // Test each test individually.
     foreach (array(
       'Drupal\\psr_0_test\\Tests\\ExampleTest',
       'Drupal\\psr_0_test\\Tests\\Nested\\NestedExampleTest',
+      'Drupal\\psr_4_test\\Tests\\ExampleTest',
+      'Drupal\\psr_4_test\\Tests\\Nested\\NestedExampleTest',
     ) as $class) {
       $this->drupalGet('admin/config/development/testing');
       $edit = array($class => TRUE);

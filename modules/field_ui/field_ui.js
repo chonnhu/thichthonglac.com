@@ -168,7 +168,7 @@ Drupal.fieldUIOverview = {
     var dragObject = this;
     var row = dragObject.rowObject.element;
     var rowHandler = $(row).data('fieldUIRowHandler');
-    if (rowHandler !== undefined) {
+    if (typeof rowHandler !== 'undefined') {
       var regionRow = $(row).prevAll('tr.region-message').get(0);
       var region = regionRow.className.replace(/([^ ]+[ ]+)*region-([^ ]+)-message([ ]+[^ ]+)*/, '$2');
 
@@ -232,13 +232,10 @@ Drupal.fieldUIOverview = {
     // Separate keys and values.
     var rowNames = [];
     var ajaxElements = [];
-    var rowName;
-    for (rowName in rows) {
-      if (rows.hasOwnProperty(rowName)) {
-        rowNames.push(rowName);
-        ajaxElements.push(rows[rowName]);
-      }
-    }
+    $.each(rows, function (rowName, ajaxElement) {
+      rowNames.push(rowName);
+      ajaxElements.push(ajaxElement);
+    });
 
     if (rowNames.length) {
       // Add a throbber next each of the ajaxElements.
@@ -322,7 +319,7 @@ Drupal.fieldUIDisplayOverview.field.prototype = {
         if (currentValue == 'hidden') {
           // Restore the formatter back to the default formatter. Pseudo-fields do
           // not have default formatters, we just return to 'visible' for those.
-          var value = (this.defaultFormatter != undefined) ? this.defaultFormatter : 'visible';
+          var value = (typeof this.defaultFormatter !== 'undefined') ? this.defaultFormatter : this.$formatSelect.find('option').val();
         }
         break;
 

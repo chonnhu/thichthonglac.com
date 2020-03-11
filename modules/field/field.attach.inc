@@ -318,7 +318,7 @@ function _field_invoke_multiple($op, $entity_type, $entities, &$a = NULL, &$b = 
         // Unless a language suggestion is provided we iterate on all the
         // available languages.
         $available_languages = field_available_languages($entity_type, $field);
-        $language = !empty($options['language'][$id]) ? $options['language'][$id] : $options['language'];
+        $language = is_array($options['language']) && !empty($options['language'][$id]) ? $options['language'][$id] : $options['language'];
         $languages = _field_language_suggestion($available_languages, $language, $field_name);
         foreach ($languages as $langcode) {
           $grouped_items[$field_id][$langcode][$id] = isset($entity->{$field_name}[$langcode]) ? $entity->{$field_name}[$langcode] : array();
@@ -433,8 +433,7 @@ function _field_invoke_get_instances($entity_type, $bundle, $options) {
   elseif (isset($options['field_name'])) {
     // Single-field mode by field name: field_info_instance() does the
     // filtering.
-    $instance = field_info_instance($entity_type, $options['field_name'], $bundle);
-    $instances = $instance ? array($instance) : array();
+    $instances = array(field_info_instance($entity_type, $options['field_name'], $bundle));
   }
   else {
     $instances = field_info_instances($entity_type, $bundle);
